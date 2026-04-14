@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Galaxy Glitter — A Satisfying Universe</title>
+  <meta name="description" content="An immersive galaxy glitter experience. Click anywhere for a burst of colour. Watch the stars flow and shimmer." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #020008;
+      cursor: none;
+      font-family: 'Inter', sans-serif;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 1;
+    }
+
+    /* Custom cursor */
+    #cursor-ring {
+      position: fixed;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 1.2px solid rgba(255,255,255,0.35);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+      transition: width 0.25s cubic-bezier(.16,1,.3,1), height 0.25s cubic-bezier(.16,1,.3,1), border-color 0.3s, background-color 0.3s;
+    }
+    #cursor-dot {
+      position: fixed;
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.9);
+      box-shadow: 0 0 6px 2px rgba(255,255,255,0.5);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 10000;
+    }
+
+    /* Subtle hint text */
+    #hint {
+      position: fixed;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.25);
+      font-size: 11px;
+      font-weight: 300;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      pointer-events: none;
+      z-index: 100;
+      animation: fadeHint 7s ease forwards;
+      text-align: center;
+      width: 100%;
+    }
+
+    @keyframes fadeHint {
+      0%   { opacity: 0; transform: translateX(-50%) translateY(8px); }
+      15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+      70%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+    }
+
+    /* Magic Button */
+    #magic-btn {
+      position: fixed;
+      top: 36px;
+      right: 36px;
+      padding: 12px 24px;
+      background: rgba(255, 255, 255, 0.05); /* Premium glass */
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 30px;
+      color: rgba(255, 255, 255, 0.7);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: none; /* keep uniform cursor */
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: all 0.4s cubic-bezier(.16,1,.3,1);
+      z-index: 100;
+      outline: none;
+    }
+    
+    #magic-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.4);
+      color: #fff;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+    
+    #magic-btn:active {
+      transform: translateY(1px);
+    }
+
+    #magic-btn.active {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.6);
+      color: #fff;
+      box-shadow: 0 0 25px rgba(255, 255, 255, 0.25);
+    }
+
+    @media (max-width: 600px) {
+      #magic-btn {
+        top: 24px;
+        right: 24px;
+        padding: 10px 18px;
+        font-size: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="galaxy"></canvas>
+  <div id="cursor-ring"></div>
+  <div id="cursor-dot"></div>
+  <div id="hint">✦ click to burst colour into the void ✦</div>
+  <button id="magic-btn">Start Magic Warp</button>
+
+  <script>
+    /* ═══════════════════════════════════════════════════════════
+       Galaxy Glitter — Premium Satisfying Experience
+       ═══════════════════════════════════════════════════════════ */
+
+    const canvas = document.getElementById('galaxy');
+    const ctx    = canvas.getContext('2d');
+    const ring   = document.getElementById('cursor-ring');
+    const dot    = document.getElementById('cursor-dot');
+    const magicBtn = document.getElementById('magic-btn');
+
+    let W = window.innerWidth;
+    let H = window.innerHeight;
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+
+    /* ─── State ─── */
+    let isFalling = false;
+    
+    /* ─── Burst Colour Palette ─── */
+    const BURST_COLORS = [
+      { r: 255, g: 60,  b: 110 },  // rose
+      { r: 77,  g: 200, b: 255 },  // cyan
+      { r: 255, g: 255, b: 255 },  // white
+      { r: 255, g: 180, b: 80  },  // amber
+      { r: 120, g: 255, b: 180 },  // mint
+      { r: 180, g: 120, b: 255 },  // lavender
+      { r: 255, g: 100, b: 200 },  // pink
+      { r: 100, g: 180, b: 255 },  // sky
+    ];
+
+    function rndBurstColor() { return BURST_COLORS[Math.floor(Math.random() * BURST_COLORS.length)]; }
+    function rnd(a, b) { return a + Math.random() * (b - a); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    /* ─── Mouse State ─── */
+    const mouse = { x: -9999, y: -9999, active: false };
+    let cursorX = -9999, cursorY = -9999; 
+
+    document.addEventListener('mousemove', e => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+      mouse.active = true;
+    });
+
+    document.addEventListener('mouseleave', () => { mouse.active = false; });
+    
+    document.addEventListener('touchmove', e => {
+      const t = e.touches[0];
+      mouse.x = t.clientX;
+      mouse.y = t.clientY;
+      mouse.active = true;
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => { mouse.active = false; });
+
+    /* ─── Unified Glitter Particle (handles both ambient & burst) ─── */
+    class Glitter {
+      constructor(x, y, isBurst = false, colorObj = null, p_vx = null, p_vy = null) {
+        this.x = x;
+        this.y = y;
+        this.isBurst = isBurst;
+        
+        this.baseR = isBurst ? rnd(0.5, 1.8) : rnd(0.3, 1.2);
+        this.r = this.baseR;
+        
+        if (isBurst) {
+          if (p_vx !== null && p_vy !== null) {
+            this.vx = p_vx;
+            this.vy = p_vy;
+          } else {
+            const angle = rnd(0, Math.PI * 2);
+            const speed = rnd(0.5, 3.5); // Slower initial travel speed 
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+          }
+          this.friction = rnd(0.975, 0.995); 
+          
+          const c = colorObj || rndBurstColor();
+          this.cr = c.r; this.cg = c.g; this.cb = c.b;
+          this.targetCr = c.r; this.targetCg = c.g; this.targetCb = c.b;
+          this.colorDecay = 0; 
+        } else {
+          this.vx = rnd(-0.15, 0.15);
+          this.vy = rnd(-0.1, 0.1);
+          this.friction = 1;
+          
+          this.cr = 255; this.cg = 255; this.cb = 255;
+          this.targetCr = 255; this.targetCg = 255; this.targetCb = 255;
+          this.colorDecay = 0.002;
+        }
+        
+        this.baseVx = isBurst ? 0 : this.vx;
+        this.baseVy = isBurst ? 0 : this.vy;
+        
+        this.swaySpeed = rnd(0.015, 0.035);
+        this.swayPhase = rnd(0, Math.PI * 2);
+
+        this.twinkleSpeed = rnd(0.015, 0.04);
+        this.twinklePhase = rnd(0, Math.PI * 2);
+        this.baseAlpha = rnd(0.5, 1.0); 
+        this.alpha = this.baseAlpha;
+
+        this.rpx = 0;
+        this.rpy = 0;
+
+        // Depth scale for pseudo-3D
+        this.zScale = 1;
+      }
+
+      tint(r, g, b, strength = 0.15) {
+        this.targetCr = lerp(this.targetCr, r, strength);
+        this.targetCg = lerp(this.targetCg, g, strength);
+        this.targetCb = lerp(this.targetCb, b, strength);
+      }
+
+      update(dt, time) {
+        const dx = this.x - mouse.x;
+        const dy = this.y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const REPEL_R = 140;
+
+        if (!isFalling && dist < REPEL_R && mouse.active) {
+          const force = ((REPEL_R - dist) / REPEL_R);
+          const f = force * force * 5.5; 
+          this.rpx += (dx / dist) * f;
+          this.rpy += (dy / dist) * f;
+        }
+
+        this.rpx *= 0.88;
+        this.rpy *= 0.88;
+
+        if (this.isBurst) {
+          this.vx *= Math.pow(this.friction, dt);
+          this.vy *= Math.pow(this.friction, dt);
+          if (Math.abs(this.vx) < 0.25 && Math.abs(this.vy) < 0.25) {
+            this.isBurst = false;
+            this.baseVx = rnd(-0.15, 0.15);
+            this.baseVy = rnd(-0.1, 0.1);
+          }
+        } else {
+          let tvx = this.baseVx;
+          let tvy = this.baseVy;
+          
+          if (isFalling) {
+            const cx = W / 2;
+            const cy = H / 2;
+            let pdx = this.x - cx;
+            let pdy = this.y - cy;
+            
+            tvx += pdx * 0.015;
+            tvy += pdy * 0.015;
+            
+            const spinStrength = 0.003;
+            tvx += -pdy * spinStrength;
+            tvy += pdx * spinStrength;
+          }
+          
+          this.vx = lerp(this.vx, tvx, 0.04 * dt);
+          this.vy = lerp(this.vy, tvy, 0.04 * dt);
+        }
+
+        this.x += (this.vx + this.rpx) * dt;
+        this.y += (this.vy + this.rpy) * dt;
+
+        let targetZScale = 1;
+        if (isFalling) {
+          const cx = W / 2;
+          const cy = H / 2;
+          const zdist = Math.sqrt(Math.pow(this.x - cx, 2) + Math.pow(this.y - cy, 2));
+          const maxDist = Math.max(W, H) / 2;
+          const normalizedDist = Math.min(1, zdist / maxDist);
+          targetZScale = 0.05 + (Math.pow(normalizedDist, 1.8) * 4.0); 
+        }
+        
+        this.zScale = lerp(this.zScale, targetZScale, 0.05 * dt);
+
+        const isOffscreen = (this.x < -15 || this.x > W + 15 || this.y < -15 || this.y > H + 15);
+        if (isOffscreen) {
+          if (isFalling) {
+            // Respawn directly from the center to ensure they "fall" exactly from the middle
+            const angle = rnd(0, Math.PI * 2);
+            const distRadius = rnd(0, 6);
+            this.x = W / 2 + Math.cos(angle) * distRadius;
+            this.y = H / 2 + Math.sin(angle) * distRadius;
+            this.vx = 0;
+            this.vy = 0;
+            this.zScale = 0.01; 
+          } else {
+            if (this.x < -15) this.x += W + 30;
+            if (this.x > W + 15) this.x -= W + 30;
+            if (this.y < -15) this.y += H + 30;
+            if (this.y > H + 15) this.y -= H + 30;
+          }
+        }
+
+        const sine = 0.5 + 0.5 * Math.sin(time * this.twinkleSpeed + this.twinklePhase);
+        const twinkle = Math.pow(sine, 1.8);
+        this.alpha = this.baseAlpha * (0.2 + 0.8 * twinkle);
+
+        this.cr = lerp(this.cr, this.targetCr, 0.01 * dt);
+        this.cg = lerp(this.cg, this.targetCg, 0.01 * dt);
+        this.cb = lerp(this.cb, this.targetCb, 0.01 * dt);
+
+        if (this.colorDecay > 0) {
+          this.targetCr = lerp(this.targetCr, 255, this.colorDecay * dt);
+          this.targetCg = lerp(this.targetCg, 255, this.colorDecay * dt);
+          this.targetCb = lerp(this.targetCb, 255, this.colorDecay * dt);
+        }
+      }
+
+      draw() {
+        if (this.alpha < 0.01) return;
+        const a = Math.min(1, this.alpha);
+        const cr = Math.round(this.cr);
+        const cg = Math.round(this.cg);
+        const cb = Math.round(this.cb);
+
+        const currentR = this.r * this.zScale;
+        if (currentR < 0.05) return; 
+
+        const glowR = currentR * 6.5; 
+        const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowR);
+        grad.addColorStop(0, `rgba(${cr},${cg},${cb},${a * 0.95})`);
+        grad.addColorStop(0.25, `rgba(${cr},${cg},${cb},${a * 0.35})`);
+        grad.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+        
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, glowR, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = `rgba(${cr},${cg},${cb},${a})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, currentR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    /* ─── Fireflies (spawned via clicks) ─── */
+    class Firefly {
+      constructor(x, y, p_vx = null, p_vy = null) {
+        this.x = x;
+        this.y = y;
+        
+        if (p_vx !== null && p_vy !== null) {
+            this.vx = p_vx;
+            this.vy = p_vy;
+        } else {
+            const angle = rnd(0, Math.PI*2);
+            const speed = rnd(1.0, 3.5); 
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+        }
+        
+        this.r = rnd(1.0, 2.0);
+        
+        // Yellow/Green glow
+        this.cr = 200 + Math.floor(rnd(0, 55));
+        this.cg = 255;
+        this.cb = 50 + Math.floor(rnd(0, 100));
+        
+        this.timer = 0;
+        this.tx = x;
+        this.ty = y;
+        
+        this.willLeave = Math.random() < 0.8; // 80% leave completely
+        this.active = true;
+        this.alpha = rnd(0.5, 1.0);
+        this.phase = rnd(0, Math.PI * 2);
+      }
+      
+      update(dt, time) {
+        if (!this.active) return;
+        
+        this.timer -= dt;
+        if (this.timer <= 0) {
+           if (this.willLeave) {
+               // Aggressively move off screen
+               const outwardAngle = Math.atan2(this.y - H/2, this.x - W/2) + rnd(-0.3, 0.3);
+               this.tx = this.x + Math.cos(outwardAngle) * 500;
+               this.ty = this.y + Math.sin(outwardAngle) * 500;
+               this.timer = rnd(100, 200);
+           } else {
+               // Wander in area
+               this.tx = this.x + rnd(-80, 80);
+               this.ty = this.y + rnd(-80, 80);
+               this.timer = rnd(40, 90);
+           }
+        }
+        
+        const dx = this.tx - this.x;
+        const dy = this.ty - this.y;
+        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+        this.vx += (dx/dist) * 0.05 * dt;
+        this.vy += (dy/dist) * 0.05 * dt;
+        
+        this.vx *= 0.92;
+        this.vy *= 0.92;
+        
+        const rdx = this.x - mouse.x;
+        const rdy = this.y - mouse.y;
+        const rdist = Math.sqrt(rdx * rdx + rdy * rdy) || 1;
+        if (!isFalling && rdist < 120 && mouse.active) {
+            const force = ((120 - rdist) / 120) * 4.0;
+            this.vx += (rdx / rdist) * force;
+            this.vy += (rdy / rdist) * force;
+        }
+        
+        if (isFalling) {
+            const cx = W/2, cy = H/2;
+            let pxd = this.x - cx, pyd = this.y - cy;
+            this.vx += pxd * 0.01;
+            this.vy += pyd * 0.01;
+        }
+
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        
+        if (this.x < -60 || this.x > W + 60 || this.y < -60 || this.y > H + 60) {
+            if (this.willLeave) {
+                this.active = false; 
+            } else {
+                if (this.x < -60) this.x += W + 120;
+                if (this.x > W + 60) this.x -= W + 120;
+                if (this.y < -60) this.y += H + 120;
+                if (this.y > H + 60) this.y -= H + 120;
+            }
+        }
+        
+        const sine = 0.5 + 0.5 * Math.sin(time * 0.06 + this.phase);
+        this.alpha = 0.3 + 0.7 * Math.pow(sine, 1.5);
+      }
+      
+      draw() {
+        if (!this.active || this.alpha < 0.02) return;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const a = Math.min(1, this.alpha);
+        
+        // Large ambient area illumination
+        const areaGlowR = this.r * 18; 
+        const areaGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, areaGlowR);
+        areaGrad.addColorStop(0, `rgba(${this.cr},${this.cg},${this.cb},${a * 0.3})`);
+        areaGrad.addColorStop(1, `rgba(${this.cr},${this.cg},${this.cb},0)`);
+        ctx.fillStyle = areaGrad;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, areaGlowR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core bright glow
+        const coreGlowR = this.r * 4.5;
+        const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, coreGlowR);
+        grad.addColorStop(0, `rgba(${this.cr},${this.cg},${this.cb},${a * 0.9})`);
+        grad.addColorStop(1, `rgba(${this.cr},${this.cg},${this.cb},0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, coreGlowR, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = `rgba(255,255,255,${a})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+      }
+    }
+
+    /* ─── Shooting Stars (Slow with Pseudo Depth) ─── */
+    class ShootingStar {
+      constructor() {
+        this.reset(true);
+      }
+      reset(init = false) {
+        this.active = false;
+        // Slow pacing
+        this.timer = init ? rnd(100, 300) : rnd(180, 420); 
+      }
+      spawn() {
+        this.active = true;
+        this.isNear = Math.random() > 0.5; // 50% near (large), 50% far (tiny)
+        
+        this.x = rnd(W * 0.1, W * 0.9);
+        this.y = rnd(-100, H * 0.3);
+        const angle = rnd(Math.PI * 0.15, Math.PI * 0.35);
+        
+        // Slow speeds
+        let speed = this.isNear ? rnd(3.5, 6.0) : rnd(1.0, 2.5);
+        if (isFalling) speed *= 1.5;
+        
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        
+        this.len = this.isNear ? rnd(80, 160) : rnd(30, 60);
+        this.r = this.isNear ? rnd(1.5, 2.5) : rnd(0.5, 1.2);
+        this.alpha = this.isNear ? rnd(0.7, 1.0) : rnd(0.25, 0.5);
+      }
+      update(dt) {
+        if (!this.active) {
+          this.timer -= dt;
+          if (this.timer <= 0) this.spawn();
+          return;
+        }
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        if (this.x > W + 200 || this.y > H + 200) {
+          this.reset();
+        }
+      }
+      draw() {
+        if (!this.active) return;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const endX = this.x - this.vx * (this.len/20);
+        const endY = this.y - this.vy * (this.len/20);
+        const grad = ctx.createLinearGradient(this.x, this.y, endX, endY);
+        grad.addColorStop(0, `rgba(255,255,255,${this.alpha})`);
+        grad.addColorStop(1, `rgba(255,255,255,0)`);
+        
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = this.r;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+        
+        const headR = this.r * 5;
+        const headGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, headR);
+        headGrad.addColorStop(0, `rgba(255,255,255,${this.alpha})`);
+        headGrad.addColorStop(1, `rgba(255,255,255,0)`);
+        ctx.fillStyle = headGrad;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, headR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    /* ─── State Arrays ─── */
+    const ambientCount = Math.min(500, Math.floor(W * H / 3200));
+    const ambientParticles = [];
+    for (let i = 0; i < ambientCount; i++) {
+      ambientParticles.push(new Glitter(rnd(0, W), rnd(0, H)));
+    }
+    const burstParticles = [];
+    const fireflies = [];
+    
+    // 3 shooting stars handled natively
+    const shootingStars = [];
+    for (let i = 0; i < 3; i++) {
+        shootingStars.push(new ShootingStar());
+    }
+
+    /* ─── Interaction Logic ─── */
+    magicBtn.addEventListener('pointerup', (e) => {
+      e.stopPropagation();
+      isFalling = !isFalling;
+      if (isFalling) {
+        magicBtn.textContent = 'Stop Magic Warp';
+        magicBtn.classList.add('active');
+        ring.style.width = '35px';
+        ring.style.height = '35px';
+        ring.style.borderColor = 'rgba(255,255,255,0.8)';
+        setTimeout(() => {
+          if (!magicBtn.matches(':hover')) {
+             ring.style.width = '28px';
+             ring.style.height = '28px';
+             ring.style.borderColor = 'rgba(255,255,255,0.35)';
+          }
+        }, 200);
+      } else {
+        magicBtn.textContent = 'Start Magic Warp';
+        magicBtn.classList.remove('active');
+      }
+    });
+
+    magicBtn.addEventListener('mouseenter', () => {
+      ring.style.width = '42px';
+      ring.style.height = '42px';
+      ring.style.backgroundColor = 'rgba(255,255,255,0.08)';
+      ring.style.borderColor = 'rgba(255,255,255,0.6)';
+    });
+    
+    magicBtn.addEventListener('mouseleave', () => {
+      ring.style.width = '28px';
+      ring.style.height = '28px';
+      ring.style.backgroundColor = 'transparent';
+      ring.style.borderColor = 'rgba(255,255,255,0.35)'; // Default
+    });
+
+    function spawnBurst(cx, cy) {
+      // 80% chance for a Glitter Burst, 20% for a Firefly Burst.
+      const isFireflyBurst = Math.random() < 0.2;
+      
+      if (isFireflyBurst) {
+         // Deploy roughly ~15 fireflies in an expanding circular formation
+         const NUM = 12 + Math.floor(Math.random() * 6);
+         for (let i = 0; i < NUM; i++) {
+            const angle = (Math.PI * 2 / NUM) * i;
+            const speed = rnd(1.0, 3.5);
+            fireflies.push(new Firefly(cx, cy, Math.cos(angle) * speed, Math.sin(angle) * speed));
+         }
+      } else {
+         // Deploy roughly ~75 glitters in a circular formation
+         const NUM = 60 + Math.floor(Math.random() * 30);
+         for (let i = 0; i < NUM; i++) {
+            const angle = (Math.PI * 2 / NUM) * i;
+            // Randomly varying the speed ensures it's circular but still creates multiple layers/rings
+            const speed = rnd(0.5, 3.5);
+            burstParticles.push(new Glitter(cx, cy, true, rndBurstColor(), Math.cos(angle) * speed, Math.sin(angle) * speed));
+         }
+      }
+
+      // Cleanup arrays
+      const MAX_BURSTS = 1000;
+      if (burstParticles.length > MAX_BURSTS) {
+        burstParticles.splice(0, burstParticles.length - MAX_BURSTS);
+      }
+
+      for (let i = fireflies.length - 1; i >= 0; i--) {
+        if (!fireflies[i].active) fireflies.splice(i, 1);
+      }
+      const MAX_FIREFLIES = 300;
+      if (fireflies.length > MAX_FIREFLIES) {
+        fireflies.splice(0, fireflies.length - MAX_FIREFLIES);
+      }
+
+      const TINT_RADIUS = 250;
+      for (const p of ambientParticles) {
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < TINT_RADIUS) {
+          const strength = 0.6 * (1 - dist / TINT_RADIUS);
+          const c = rndBurstColor();
+          p.tint(c.r, c.g, c.b, strength);
+        }
+      }
+
+      ring.style.width = '44px';
+      ring.style.height = '44px';
+      const c = rndBurstColor();
+      ring.style.borderColor = `rgba(${c.r},${c.g},${c.b},0.8)`;
+      setTimeout(() => {
+        if (!magicBtn.matches(':hover')) {
+          ring.style.width = '28px';
+          ring.style.height = '28px';
+          ring.style.borderColor = 'rgba(255,255,255,0.35)';
+        }
+      }, 300);
+    }
+
+    document.addEventListener('pointerup', e => {
+      if (e.target === magicBtn || magicBtn.contains(e.target)) return;
+      spawnBurst(e.clientX, e.clientY);
+    });
+
+    /* ─── Nebula Background (pre-rendered for performance) ─── */
+    let nebulaBg = null;
+    function buildNebula() {
+      const offscreen = document.createElement('canvas');
+      offscreen.width = W * DPR;
+      offscreen.height = H * DPR;
+      const octx = offscreen.getContext('2d');
+      octx.scale(DPR, DPR);
+
+      const bg = octx.createRadialGradient(W * 0.3, H * 0.35, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.9);
+      bg.addColorStop(0,    '#0e0022');
+      bg.addColorStop(0.3,  '#08001a');
+      bg.addColorStop(0.6,  '#040010');
+      bg.addColorStop(1,    '#010005');
+      octx.fillStyle = bg;
+      octx.fillRect(0, 0, W, H);
+
+      const clouds = [
+        { cx: W*0.2,  cy: H*0.3,  r: W*0.32, col: [60, 0, 120] },
+        { cx: W*0.8,  cy: H*0.55, r: W*0.28, col: [0, 20, 80] },
+        { cx: W*0.5,  cy: H*0.85, r: W*0.24, col: [80, 0, 60] },
+        { cx: W*0.65, cy: H*0.12, r: W*0.2,  col: [30, 0, 90] },
+      ];
+      clouds.forEach(c => {
+        const g = octx.createRadialGradient(c.cx, c.cy, 0, c.cx, c.cy, c.r);
+        g.addColorStop(0, `rgba(${c.col[0]},${c.col[1]},${c.col[2]},0.04)`);
+        g.addColorStop(0.5, `rgba(${c.col[0]},${c.col[1]},${c.col[2]},0.02)`);
+        g.addColorStop(1, 'transparent');
+        octx.fillStyle = g;
+        octx.fillRect(0, 0, W, H);
+      });
+
+      for (let i = 0; i < 200; i++) {
+        const sx = rnd(0, W), sy = rnd(0, H);
+        const sr = rnd(0.15, 0.5);
+        const sa = rnd(0.1, 0.35);
+        octx.fillStyle = `rgba(255,255,255,${sa})`;
+        octx.beginPath();
+        octx.arc(sx, sy, sr, 0, Math.PI * 2);
+        octx.fill();
+      }
+      nebulaBg = offscreen;
+    }
+    buildNebula();
+
+    /* ─── Cursor Trail ─── */
+    const TRAIL_LEN = 8;
+    const trail = [];
+
+    function updateCursor() {
+      if (!mouse.active) return;
+      cursorX = lerp(cursorX, mouse.x, 0.25);
+      cursorY = lerp(cursorY, mouse.y, 0.25);
+      ring.style.left = cursorX + 'px';
+      ring.style.top  = cursorY + 'px';
+      dot.style.left  = mouse.x + 'px';
+      dot.style.top   = mouse.y + 'px';
+
+      trail.push({ x: cursorX, y: cursorY, a: 0.3 });
+      if (trail.length > TRAIL_LEN) trail.shift();
+    }
+
+    function drawTrail() {
+      for (let i = 0; i < trail.length; i++) {
+        const t = trail[i];
+        const progress = i / trail.length;
+        const a = t.a * progress * 0.3;
+        if (a < 0.01) continue;
+        ctx.fillStyle = `rgba(255,255,255,${a})`;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 1.5 * progress, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    /* ─── Main Loop ─── */
+    let lastTime = performance.now();
+    let time = 0;
+
+    function loop(now) {
+      requestAnimationFrame(loop);
+
+      const rawDt = (now - lastTime) / 16.667; 
+      const dt = Math.min(rawDt, 3);
+      lastTime = now;
+      time += dt;
+
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(nebulaBg, 0, 0, W, H);
+
+      updateCursor();
+      drawTrail();
+
+      ctx.globalCompositeOperation = 'lighter';
+      
+      for (const p of ambientParticles) p.update(dt, time);
+      for (const p of burstParticles) p.update(dt, time);
+      for (const f of fireflies) f.update(dt, time);
+      for (const s of shootingStars) s.update(dt);
+      
+      for (const p of ambientParticles) p.draw();
+      for (const p of burstParticles) p.draw();
+      for (const f of fireflies) f.draw();
+      for (const s of shootingStars) s.draw();
+      
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    requestAnimationFrame(loop);
+
+    /* ─── Resize ─── */
+    window.addEventListener('resize', () => {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width  = W * DPR;
+      canvas.height = H * DPR;
+      ctx.scale(DPR, DPR);
+      buildNebula();
+    });
+  </script>
+</body>
+</html>
