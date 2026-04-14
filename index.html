@@ -367,6 +367,19 @@
         ctx.arc(this.x, this.y, glowR, 0, Math.PI * 2);
         ctx.fill();
 
+        // Premium Sparkle Cross-Flare for falling glitters
+        if (isFalling && this.alpha > 0.7) {
+          ctx.strokeStyle = `rgba(${cr},${cg},${cb},${a * 0.4})`;
+          ctx.lineWidth = 0.5 * this.zScale;
+          ctx.beginPath();
+          const flareSize = currentR * 5;
+          ctx.moveTo(this.x - flareSize, this.y);
+          ctx.lineTo(this.x + flareSize, this.y);
+          ctx.moveTo(this.x, this.y - flareSize);
+          ctx.lineTo(this.x, this.y + flareSize);
+          ctx.stroke();
+        }
+
         ctx.fillStyle = `rgba(${cr},${cg},${cb},${a})`;
         ctx.beginPath();
         ctx.arc(this.x, this.y, currentR, 0, Math.PI * 2);
@@ -639,7 +652,7 @@
          const NUM = 36 + Math.floor(Math.random() * 18);
          for (let i = 0; i < NUM; i++) {
             const angle = (Math.PI * 2 / NUM) * i;
-            const speed = rnd(0.16, 0.58); // Reduced to roughly 1/6th
+            const speed = rnd(0.32, 1.16); // Doubled velocity
             fireflies.push(new Firefly(cx, cy, Math.cos(angle) * speed, Math.sin(angle) * speed));
          }
       } else {
@@ -648,7 +661,7 @@
          for (let i = 0; i < NUM; i++) {
             const angle = (Math.PI * 2 / NUM) * i;
             // Randomly varying the speed ensures it's circular but still creates multiple layers/rings
-            const speed = rnd(0.08, 0.58); // Reduced to roughly 1/6th
+            const speed = rnd(0.16, 1.16); // Doubled velocity
             burstParticles.push(new Glitter(cx, cy, true, rndBurstColor(), Math.cos(angle) * speed, Math.sin(angle) * speed));
          }
       }
