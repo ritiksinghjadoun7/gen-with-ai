@@ -254,7 +254,7 @@
         const dx = this.x - mouse.x;
         const dy = this.y - mouse.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const REPEL_R = 140;
+        const REPEL_R = 70; // Reduced to half
 
         if (!isFalling && dist < REPEL_R && mouse.active) {
           const force = ((REPEL_R - dist) / REPEL_R);
@@ -330,9 +330,9 @@
           }
         }
 
-        const sine = 0.5 + 0.5 * Math.sin(time * this.twinkleSpeed + this.twinklePhase);
-        const twinkle = Math.pow(sine, 1.8);
-        this.alpha = this.baseAlpha * (0.2 + 0.8 * twinkle);
+        const sine = 0.5 + 0.5 * Math.sin(time * (isFalling ? this.twinkleSpeed * 2.5 : this.twinkleSpeed) + this.twinklePhase);
+        const twinkle = Math.pow(sine, isFalling ? 1.2 : 1.8); // More frequent and intense sparkle during warp
+        this.alpha = this.baseAlpha * ( (isFalling ? 0.3 : 0.2) + (isFalling ? 0.7 : 0.8) * twinkle);
 
         this.cr = lerp(this.cr, this.targetCr, 0.01 * dt);
         this.cg = lerp(this.cg, this.targetCg, 0.01 * dt);
@@ -437,8 +437,8 @@
         const rdx = this.x - mouse.x;
         const rdy = this.y - mouse.y;
         const rdist = Math.sqrt(rdx * rdx + rdy * rdy) || 1;
-        if (!isFalling && rdist < 120 && mouse.active) {
-            const force = ((120 - rdist) / 120) * 4.0;
+        if (!isFalling && rdist < 60 && mouse.active) { // Also reduced firefly repel slightly
+            const force = ((60 - rdist) / 60) * 4.0;
             this.vx += (rdx / rdist) * force;
             this.vy += (rdy / rdist) * force;
         }
@@ -635,7 +635,7 @@
          const NUM = 12 + Math.floor(Math.random() * 6);
          for (let i = 0; i < NUM; i++) {
             const angle = (Math.PI * 2 / NUM) * i;
-            const speed = rnd(1.0, 3.5);
+            const speed = rnd(0.25, 0.85); // Reduced to roughly 1/4th
             fireflies.push(new Firefly(cx, cy, Math.cos(angle) * speed, Math.sin(angle) * speed));
          }
       } else {
@@ -644,7 +644,7 @@
          for (let i = 0; i < NUM; i++) {
             const angle = (Math.PI * 2 / NUM) * i;
             // Randomly varying the speed ensures it's circular but still creates multiple layers/rings
-            const speed = rnd(0.5, 3.5);
+            const speed = rnd(0.12, 0.85); // Reduced to roughly 1/4th
             burstParticles.push(new Glitter(cx, cy, true, rndBurstColor(), Math.cos(angle) * speed, Math.sin(angle) * speed));
          }
       }
