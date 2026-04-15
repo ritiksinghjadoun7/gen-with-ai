@@ -115,9 +115,56 @@
       box-shadow: 0 0 25px rgba(255, 255, 255, 0.25);
     }
 
+    #supernova-btn {
+      position: fixed;
+      top: 96px;
+      right: 36px;
+      padding: 12px 24px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 30px;
+      color: rgba(255, 255, 255, 0.7);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: none;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: all 0.4s cubic-bezier(.16,1,.3,1);
+      z-index: 100;
+      outline: none;
+    }
+    
+    #supernova-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.4);
+      color: #fff;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+    
+    #supernova-btn:active {
+      transform: translateY(1px);
+    }
+
+    #supernova-btn.active {
+      background: rgba(255, 100, 200, 0.2);
+      border-color: rgba(255, 100, 200, 0.6);
+      color: #fff;
+      box-shadow: 0 0 25px rgba(255, 100, 200, 0.25);
+    }
+
     @media (max-width: 600px) {
       #magic-btn {
         top: 24px;
+        right: 24px;
+        padding: 10px 18px;
+        font-size: 10px;
+      }
+      #supernova-btn {
+        top: 76px;
         right: 24px;
         padding: 10px 18px;
         font-size: 10px;
@@ -131,6 +178,7 @@
   <div id="cursor-dot"></div>
   <div id="hint">✦ click to burst colour into the void ✦</div>
   <button id="magic-btn">Start Magic Warp</button>
+  <button id="supernova-btn">Supernova Mode</button>
 
   <script>
     /* ═══════════════════════════════════════════════════════════
@@ -142,6 +190,7 @@
     const ring   = document.getElementById('cursor-ring');
     const dot    = document.getElementById('cursor-dot');
     const magicBtn = document.getElementById('magic-btn');
+    const supernovaBtn = document.getElementById('supernova-btn');
 
     let W = window.innerWidth;
     let H = window.innerHeight;
@@ -152,6 +201,7 @@
 
     /* ─── State ─── */
     let isFalling = false;
+    let isSupernova = false;
     
     /* ─── Burst Colour Palette ─── */
     const BURST_COLORS = [
@@ -591,6 +641,108 @@
       }
     }
 
+    /* ─── Supernova ─── */
+    class Supernova {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.angle = rnd(0, Math.PI * 2);
+        this.orbitRadius = rnd(Math.min(W, H) * 0.2, Math.min(W, H) * 0.45);
+        // Very slow movement
+        this.orbitSpeed = rnd(0.0002, 0.0008) * (Math.random() > 0.5 ? 1 : -1);
+        this.r = rnd(40, 70);
+        // Mixed Colors
+        this.color1 = BURST_COLORS[Math.floor(Math.random() * BURST_COLORS.length)];
+        this.color2 = BURST_COLORS[Math.floor(Math.random() * BURST_COLORS.length)];
+        this.alpha = 0;
+        this.targetAlpha = 1;
+        this.active = true;
+        this.ringAngle = rnd(0, Math.PI * 2);
+        this.ringSpeed = rnd(0.002, 0.005) * (Math.random() > 0.5 ? 1 : -1);
+      }
+      update(dt) {
+        this.angle += this.orbitSpeed * dt;
+        this.ringAngle += this.ringSpeed * dt;
+        this.x = W / 2 + Math.cos(this.angle) * this.orbitRadius;
+        this.y = H / 2 + Math.sin(this.angle) * this.orbitRadius;
+        this.alpha = lerp(this.alpha, this.targetAlpha, 0.05 * dt);
+      }
+      draw() {
+        if (this.alpha < 0.01) return;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        
+        const a = this.alpha;
+        const c1 = this.color1;
+        const c2 = this.color2;
+        
+        // Vast ethereal bloom - Mixed colors radially
+        const bloomR = this.r * 8;
+        const bloomGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, bloomR);
+        bloomGrad.addColorStop(0, `rgba(${c1.r},${c1.g},${c1.b},${a * 0.2})`);
+        bloomGrad.addColorStop(0.4, `rgba(${c2.r},${c2.g},${c2.b},${a * 0.08})`);
+        bloomGrad.addColorStop(1, `transparent`);
+        ctx.fillStyle = bloomGrad;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, bloomR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Intense core aura
+        const coreGlowR = this.r * 2.5;
+        const coreGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, coreGlowR);
+        coreGrad.addColorStop(0, `rgba(${c1.r},${c1.g},${c1.b},${a * 0.7})`);
+        coreGrad.addColorStop(0.5, `rgba(${c2.r},${c2.g},${c2.b},${a * 0.25})`);
+        coreGrad.addColorStop(1, `transparent`);
+        ctx.fillStyle = coreGrad;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, coreGlowR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // White hot center
+        ctx.fillStyle = `rgba(255,255,255,${a * 0.9})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Premium planetary rings (3D perspective)
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.ringAngle);
+        ctx.scale(1, 0.3); // Squeeze to create depth/tilt
+        
+        const ringR1 = this.r * 3.5;
+        const ringR2 = this.r * 4.5;
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, ringR1, 0, Math.PI * 2);
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = `rgba(${c2.r},${c2.g},${c2.b},${a * 0.3})`;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, ringR2, 0, Math.PI * 2);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = `rgba(${c1.r},${c1.g},${c1.b},${a * 0.5})`;
+        ctx.stroke();
+        ctx.restore();
+
+        // Rays of light
+        ctx.strokeStyle = `rgba(255,255,255,${a * 0.2})`;
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 12; i++) {
+          const rayAngle = (Math.PI * 2 / 12) * i + time * 0.01;
+          const rayLen = this.r * (3 + Math.sin(time * 0.05 + i) * 1.5);
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y);
+          ctx.lineTo(this.x + Math.cos(rayAngle) * rayLen, this.y + Math.sin(rayAngle) * rayLen);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+    }
+
     /* ─── State Arrays ─── */
     const ambientCount = Math.min(500, Math.floor(W * H / 3200));
     const ambientParticles = [];
@@ -605,6 +757,7 @@
     for (let i = 0; i < 3; i++) {
         shootingStars.push(new ShootingStar());
     }
+    const supernovas = [];
 
     /* ─── Interaction Logic ─── */
     magicBtn.addEventListener('pointerup', (e) => {
@@ -643,6 +796,39 @@
       ring.style.borderColor = 'rgba(255,255,255,0.35)'; // Default
     });
 
+    supernovaBtn.addEventListener('pointerup', (e) => {
+      e.stopPropagation();
+      isSupernova = !isSupernova;
+      if (isSupernova) {
+        supernovaBtn.classList.add('active');
+        // Spawn 3-4 supernovas
+        const count = 3 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < count; i++) {
+          supernovas.push(new Supernova());
+        }
+      } else {
+        supernovaBtn.classList.remove('active');
+        for (const s of supernovas) s.targetAlpha = 0;
+        setTimeout(() => {
+          if (!isSupernova) supernovas.length = 0;
+        }, 1000);
+      }
+    });
+
+    supernovaBtn.addEventListener('mouseenter', () => {
+      ring.style.width = '42px';
+      ring.style.height = '42px';
+      ring.style.backgroundColor = 'rgba(255, 100, 200, 0.08)';
+      ring.style.borderColor = 'rgba(255, 100, 200, 0.6)';
+    });
+    
+    supernovaBtn.addEventListener('mouseleave', () => {
+      ring.style.width = '28px';
+      ring.style.height = '28px';
+      ring.style.backgroundColor = 'transparent';
+      ring.style.borderColor = 'rgba(255,255,255,0.35)';
+    });
+
     function spawnBurst(cx, cy) {
       // 80% chance for a Glitter Burst, 20% for a Firefly Burst.
       const isFireflyBurst = Math.random() < 0.2;
@@ -667,7 +853,7 @@
       }
 
       // Cleanup arrays
-      const MAX_BURSTS = 1000;
+      const MAX_BURSTS = 4000;
       if (burstParticles.length > MAX_BURSTS) {
         burstParticles.splice(0, burstParticles.length - MAX_BURSTS);
       }
@@ -675,7 +861,7 @@
       for (let i = fireflies.length - 1; i >= 0; i--) {
         if (!fireflies[i].active) fireflies.splice(i, 1);
       }
-      const MAX_FIREFLIES = 300;
+      const MAX_FIREFLIES = 1200;
       if (fireflies.length > MAX_FIREFLIES) {
         fireflies.splice(0, fireflies.length - MAX_FIREFLIES);
       }
@@ -706,7 +892,7 @@
     }
 
     document.addEventListener('pointerup', e => {
-      if (e.target === magicBtn || magicBtn.contains(e.target)) return;
+      if (e.target === magicBtn || magicBtn.contains(e.target) || e.target === supernovaBtn || supernovaBtn.contains(e.target)) return;
       spawnBurst(e.clientX, e.clientY);
     });
 
@@ -809,11 +995,13 @@
       for (const p of burstParticles) p.update(dt, time);
       for (const f of fireflies) f.update(dt, time);
       for (const s of shootingStars) s.update(dt);
+      for (const sv of supernovas) sv.update(dt);
       
       for (const p of ambientParticles) p.draw();
       for (const p of burstParticles) p.draw();
       for (const f of fireflies) f.draw();
       for (const s of shootingStars) s.draw();
+      for (const sv of supernovas) sv.draw();
       
       ctx.globalCompositeOperation = 'source-over';
     }
