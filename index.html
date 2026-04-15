@@ -650,8 +650,13 @@
         this.angle = rnd(0, Math.PI * 2);
         this.orbitRadius = rnd(Math.min(W, H) * 0.2, Math.min(W, H) * 0.45);
         // Very slow movement
-        this.orbitSpeed = rnd(0.0002, 0.0008) * (Math.random() > 0.5 ? 1 : -1);
-        this.r = rnd(40, 70);
+        this.orbitSpeed = rnd(0.0001, 0.0004) * (Math.random() > 0.5 ? 1 : -1);
+        this.zAngle = rnd(0, Math.PI * 2);
+        this.zSpeed = rnd(0.005, 0.015);
+        
+        this.baseR = rnd(30, 50);
+        this.r = this.baseR;
+        
         // Mixed Colors
         this.color1 = BURST_COLORS[Math.floor(Math.random() * BURST_COLORS.length)];
         this.color2 = BURST_COLORS[Math.floor(Math.random() * BURST_COLORS.length)];
@@ -660,12 +665,22 @@
         this.active = true;
         this.ringAngle = rnd(0, Math.PI * 2);
         this.ringSpeed = rnd(0.002, 0.005) * (Math.random() > 0.5 ? 1 : -1);
+        this.zScale = 1;
       }
       update(dt) {
         this.angle += this.orbitSpeed * dt;
         this.ringAngle += this.ringSpeed * dt;
+        this.zAngle += this.zSpeed * 0.01 * dt;
+        
         this.x = W / 2 + Math.cos(this.angle) * this.orbitRadius;
         this.y = H / 2 + Math.sin(this.angle) * this.orbitRadius;
+        
+        // Z-axis movement simulation (depth)
+        // Moves between 0.5x and 2.0x scale
+        const zSin = Math.sin(this.zAngle);
+        this.zScale = 1.0 + zSin * 1.0; // range 0 to 2.0? No, let's make it 0.5 to 2.0
+        this.zScale = 0.6 + (0.5 + 0.5 * zSin) * 1.4; 
+
         this.alpha = lerp(this.alpha, this.targetAlpha, 0.05 * dt);
       }
       draw() {
@@ -676,9 +691,11 @@
         const a = this.alpha;
         const c1 = this.color1;
         const c2 = this.color2;
+        const s = this.zScale;
+        const currentR = this.baseR * s;
         
         // Vast ethereal bloom - Mixed colors radially
-        const bloomR = this.r * 8;
+        const bloomR = currentR * 8;
         const bloomGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, bloomR);
         bloomGrad.addColorStop(0, `rgba(${c1.r},${c1.g},${c1.b},${a * 0.2})`);
         bloomGrad.addColorStop(0.4, `rgba(${c2.r},${c2.g},${c2.b},${a * 0.08})`);
@@ -689,7 +706,7 @@
         ctx.fill();
 
         // Intense core aura
-        const coreGlowR = this.r * 2.5;
+        const coreGlowR = currentR * 2.5;
         const coreGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, coreGlowR);
         coreGrad.addColorStop(0, `rgba(${c1.r},${c1.g},${c1.b},${a * 0.7})`);
         coreGrad.addColorStop(0.5, `rgba(${c2.r},${c2.g},${c2.b},${a * 0.25})`);
@@ -702,7 +719,7 @@
         // White hot center
         ctx.fillStyle = `rgba(255,255,255,${a * 0.9})`;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r * 0.3, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, currentR * 0.3, 0, Math.PI * 2);
         ctx.fill();
 
         // Premium planetary rings (3D perspective)
@@ -711,33 +728,21 @@
         ctx.rotate(this.ringAngle);
         ctx.scale(1, 0.3); // Squeeze to create depth/tilt
         
-        const ringR1 = this.r * 3.5;
-        const ringR2 = this.r * 4.5;
+        const ringR1 = currentR * 3.5;
+        const ringR2 = currentR * 4.5;
         
         ctx.beginPath();
         ctx.arc(0, 0, ringR1, 0, Math.PI * 2);
-        ctx.lineWidth = 6;
+        ctx.lineWidth = 6 * s;
         ctx.strokeStyle = `rgba(${c2.r},${c2.g},${c2.b},${a * 0.3})`;
         ctx.stroke();
 
         ctx.beginPath();
         ctx.arc(0, 0, ringR2, 0, Math.PI * 2);
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 * s;
         ctx.strokeStyle = `rgba(${c1.r},${c1.g},${c1.b},${a * 0.5})`;
         ctx.stroke();
         ctx.restore();
-
-        // Rays of light
-        ctx.strokeStyle = `rgba(255,255,255,${a * 0.2})`;
-        ctx.lineWidth = 1;
-        for (let i = 0; i < 12; i++) {
-          const rayAngle = (Math.PI * 2 / 12) * i + time * 0.01;
-          const rayLen = this.r * (3 + Math.sin(time * 0.05 + i) * 1.5);
-          ctx.beginPath();
-          ctx.moveTo(this.x, this.y);
-          ctx.lineTo(this.x + Math.cos(rayAngle) * rayLen, this.y + Math.sin(rayAngle) * rayLen);
-          ctx.stroke();
-        }
 
         ctx.restore();
       }
